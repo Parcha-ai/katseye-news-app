@@ -41,6 +41,103 @@ if MINIO_ENDPOINT and MINIO_ACCESS_KEY and MINIO_SECRET_KEY:
         print(f"Failed to create S3 client: {e}")
 
 
+def ensure_bucket_and_seed_data():
+    """Ensure bucket exists and has seed data on startup."""
+    if not s3_client:
+        print("S3 client not initialized, skipping bucket setup")
+        return
+
+    try:
+        # Check if bucket exists
+        s3_client.head_bucket(Bucket=BUCKET_NAME)
+        print(f"Bucket {BUCKET_NAME} exists")
+    except ClientError as e:
+        error_code = e.response.get('Error', {}).get('Code', '')
+        if error_code == '404' or error_code == 'NoSuchBucket':
+            print(f"Creating bucket {BUCKET_NAME}")
+            try:
+                s3_client.create_bucket(Bucket=BUCKET_NAME)
+                print(f"Bucket {BUCKET_NAME} created")
+            except Exception as create_err:
+                print(f"Failed to create bucket: {create_err}")
+                return
+        else:
+            print(f"Error checking bucket: {e}")
+            return
+    except Exception as e:
+        print(f"Error checking bucket: {e}")
+        return
+
+    # Check if latest.json exists, if not seed with demo data
+    try:
+        s3_client.head_object(Bucket=BUCKET_NAME, Key="latest.json")
+        print("latest.json exists, skipping seed")
+    except ClientError as e:
+        error_code = e.response.get('Error', {}).get('Code', '')
+        if error_code == '404' or error_code == 'NoSuchKey':
+            print("Seeding initial news data...")
+            seed_data = {
+                "last_updated": datetime.utcnow().isoformat(),
+                "news_items": [
+                    {
+                        "id": "1",
+                        "headline": "KATSEYE Releases New Single 'Touch'",
+                        "summary": "The global K-pop sensation KATSEYE has dropped their highly anticipated single 'Touch', showcasing their signature blend of pop perfection and powerful vocals.",
+                        "category": "music",
+                        "source_name": "Grep Research",
+                        "relevance_score": 10
+                    },
+                    {
+                        "id": "2",
+                        "headline": "EYEKON Fandom Celebrates 1 Million Strong",
+                        "summary": "The official KATSEYE fandom, known as EYEKON, has reached a milestone of 1 million members across social platforms.",
+                        "category": "fan",
+                        "source_name": "Grep Research",
+                        "relevance_score": 9
+                    },
+                    {
+                        "id": "3",
+                        "headline": "Daniela and Sophia Share Dance Practice Video",
+                        "summary": "Members Daniela and Sophia surprised fans with an impromptu dance practice video on social media.",
+                        "category": "social",
+                        "source_name": "Grep Research",
+                        "relevance_score": 8
+                    },
+                    {
+                        "id": "4",
+                        "headline": "KATSEYE Confirmed for Major Music Festival",
+                        "summary": "KATSEYE has been announced as headliners for an upcoming major music festival.",
+                        "category": "appearance",
+                        "source_name": "Grep Research",
+                        "relevance_score": 9
+                    },
+                    {
+                        "id": "5",
+                        "headline": "Netflix's Pop Star Academy Documentary Trending",
+                        "summary": "The Netflix documentary 'Pop Star Academy: KATSEYE' that chronicles the group's formation is seeing renewed interest.",
+                        "category": "industry",
+                        "source_name": "Grep Research",
+                        "relevance_score": 7
+                    }
+                ],
+                "trending_topics": ["#KATSEYE", "#EYEKON", "#Touch", "#PopStarAcademy", "#HYBE"]
+            }
+            try:
+                s3_client.put_object(
+                    Bucket=BUCKET_NAME,
+                    Key="latest.json",
+                    Body=json.dumps(seed_data).encode('utf-8'),
+                    ContentType="application/json"
+                )
+                print("Seed data uploaded to latest.json")
+            except Exception as put_err:
+                print(f"Failed to upload seed data: {put_err}")
+
+
+# Run startup initialization
+ensure_bucket_and_seed_data()
+
+
 class NewsItem(BaseModel):
     id: str
     headline: str
