@@ -19,9 +19,10 @@ from botocore.exceptions import ClientError
 app = FastAPI(title="KATSEYE News", version="1.0.0")
 
 # MinIO configuration
-MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "")
-MINIO_ACCESS_KEY = os.getenv("ACCESS_KEY", "")
-MINIO_SECRET_KEY = os.getenv("SECRET_KEY", "")
+# Fallback to deployed MinIO addon credentials if env vars not set
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "") or "https://minio.news-storage--6xvhgfnfrlmt.xv8dbc9lt5.code.run:9000"
+MINIO_ACCESS_KEY = os.getenv("ACCESS_KEY", "") or "e06ae364eb4a611910"
+MINIO_SECRET_KEY = os.getenv("SECRET_KEY", "") or "fba31853c7ae8c962dc6f7f14c08007e1b5840"
 BUCKET_NAME = "katseye-news"
 
 # Create S3 client for MinIO
