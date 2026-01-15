@@ -9,6 +9,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend code
 COPY backend/ ./backend/
 
+# Copy cron scripts
+COPY cron/ ./cron/
+
 # Copy static HTML
 COPY static/ ./static/
 
