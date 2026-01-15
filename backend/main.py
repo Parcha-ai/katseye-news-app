@@ -6,12 +6,15 @@ import os
 import json
 from datetime import datetime
 from typing import Optional
+from io import BytesIO
 
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-import httpx
+import boto3
+from botocore.config import Config
+from botocore.exceptions import ClientError
 
 app = FastAPI(title="KATSEYE News", version="1.0.0")
 
@@ -20,6 +23,21 @@ MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "")
 MINIO_ACCESS_KEY = os.getenv("ACCESS_KEY", "")
 MINIO_SECRET_KEY = os.getenv("SECRET_KEY", "")
 BUCKET_NAME = "katseye-news"
+
+# Create S3 client for MinIO
+s3_client = None
+if MINIO_ENDPOINT and MINIO_ACCESS_KEY and MINIO_SECRET_KEY:
+    try:
+        s3_client = boto3.client(
+            's3',
+            endpoint_url=MINIO_ENDPOINT,
+            aws_access_key_id=MINIO_ACCESS_KEY,
+            aws_secret_access_key=MINIO_SECRET_KEY,
+            region_name='us-east-1',
+            config=Config(signature_version='s3v4')
+        )
+    except Exception as e:
+        print(f"Failed to create S3 client: {e}")
 
 
 class NewsItem(BaseModel):
@@ -72,18 +90,21 @@ DEMO_NEWS = {
 }
 
 
-async def fetch_from_minio(key: str) -> Optional[dict]:
-    """Fetch JSON data from MinIO bucket."""
-    if not MINIO_ENDPOINT:
+def fetch_from_minio(key: str) -> Optional[dict]:
+    """Fetch JSON data from MinIO bucket using S3 API."""
+    if not s3_client:
         return None
 
     try:
-        # Use S3-compatible URL pattern
-        url = f"{MINIO_ENDPOINT}/{BUCKET_NAME}/{key}"
-        async with httpx.AsyncClient(timeout=10) as client:
-            response = await client.get(url)
-            if response.status_code == 200:
-                return response.json()
+        response = s3_client.get_object(Bucket=BUCKET_NAME, Key=key)
+        content = response['Body'].read().decode('utf-8')
+        return json.loads(content)
+    except ClientError as e:
+        error_code = e.response.get('Error', {}).get('Code', '')
+        if error_code == 'NoSuchKey':
+            print(f"MinIO key not found: {key}")
+        else:
+            print(f"MinIO fetch error: {e}")
     except Exception as e:
         print(f"MinIO fetch error: {e}")
     return None
@@ -93,7 +114,7 @@ async def fetch_from_minio(key: str) -> Optional[dict]:
 async def get_latest_news():
     """Get the latest KATSEYE news."""
     # Try to fetch from MinIO first
-    news_data = await fetch_from_minio("latest.json")
+    news_data = fetch_from_minio("latest.json")
 
     if news_data:
         return NewsResponse(**news_data)
@@ -105,7 +126,7 @@ async def get_latest_news():
 @app.get("/api/news/archive/{date}")
 async def get_archived_news(date: str):
     """Get archived news by date (YYYY-MM-DD format)."""
-    news_data = await fetch_from_minio(f"archive/{date}.json")
+    news_data = fetch_from_minio(f"archive/{date}.json")
 
     if news_data:
         return news_data
