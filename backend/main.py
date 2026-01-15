@@ -135,17 +135,19 @@ async def status():
     }
 
 
-# Serve static files (React build)
-if os.path.exists("/app/static"):
-    app.mount("/assets", StaticFiles(directory="/app/static/assets"), name="assets")
-
+# Serve static files
+static_dir = "/app/static"
+if os.path.exists(static_dir):
     @app.get("/")
     async def serve_frontend():
-        return FileResponse("/app/static/index.html")
+        return FileResponse(f"{static_dir}/index.html")
 
     @app.get("/{path:path}")
     async def serve_frontend_routes(path: str):
-        # For SPA routing, serve index.html for non-API routes
+        # For non-API routes, serve index.html
         if not path.startswith("api/") and not path.startswith("health"):
-            return FileResponse("/app/static/index.html")
+            file_path = f"{static_dir}/{path}"
+            if os.path.exists(file_path) and os.path.isfile(file_path):
+                return FileResponse(file_path)
+            return FileResponse(f"{static_dir}/index.html")
         raise HTTPException(status_code=404)

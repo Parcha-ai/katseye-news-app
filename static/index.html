@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KATSEYE News</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body class="text-white">
+    <header class="border-b border-white/10 py-6">
+        <div class="max-w-4xl mx-auto px-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 text-transparent bg-clip-text">
+                        KATSEYE News
+                    </h1>
+                    <p class="text-gray-400 text-sm mt-1">
+                        Latest updates from your favorite K-pop group
+                    </p>
+                </div>
+                <div class="text-right text-sm text-gray-500" id="last-updated"></div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 py-8">
+        <div id="loading" class="text-center py-20">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-pink-500 border-t-transparent"></div>
+            <p class="text-gray-400 mt-4">Loading news...</p>
+        </div>
+
+        <div id="error" class="hidden bg-red-500/10 border border-red-500/50 rounded-lg p-6 text-center">
+            <p class="text-red-400" id="error-message"></p>
+        </div>
+
+        <div id="trending" class="mb-8 hidden">
+            <h2 class="text-white text-lg font-semibold mb-3">Trending</h2>
+            <div id="trending-topics" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <div id="news-feed" class="space-y-4"></div>
+    </main>
+
+    <footer class="border-t border-white/10 py-6 mt-8">
+        <div class="max-w-4xl mx-auto px-4 text-center text-gray-500 text-sm">
+            <p>Powered by Grep Research | Data updated daily</p>
+        </div>
+    </footer>
+
+    <script>
+        const categoryColors = {
+            music: 'bg-pink-500',
+            social: 'bg-purple-500',
+            appearance: 'bg-blue-500',
+            fan: 'bg-green-500',
+            industry: 'bg-orange-500',
+        };
+
+        function createNewsCard(item) {
+            const color = categoryColors[item.category] || 'bg-gray-500';
+            const stars = item.relevance_score ? '★'.repeat(Math.min(item.relevance_score, 5)) : '';
+            const date = item.published_date ? new Date(item.published_date).toLocaleDateString() : '';
+
+            return `
+                <div class="bg-white/10 backdrop-blur-sm rounded-lg p-6 hover:bg-white/15 transition-all">
+                    <div class="flex items-start gap-4">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="${color} text-white text-xs px-2 py-1 rounded-full uppercase font-medium">
+                                    ${item.category}
+                                </span>
+                                ${stars ? `<span class="text-yellow-400 text-sm">${stars}</span>` : ''}
+                            </div>
+                            <h3 class="text-white text-xl font-bold mb-2">${item.headline}</h3>
+                            <p class="text-gray-300 mb-3">${item.summary}</p>
+                            <div class="flex items-center gap-4 text-sm text-gray-400">
+                                ${item.source_name ? `<span>${item.source_name}</span>` : ''}
+                                ${date ? `<span>${date}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadNews() {
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const trending = document.getElementById('trending');
+            const trendingTopics = document.getElementById('trending-topics');
+            const newsFeed = document.getElementById('news-feed');
+            const lastUpdated = document.getElementById('last-updated');
+
+            try {
+                const response = await fetch('/api/news');
+                if (!response.ok) throw new Error('Failed to fetch news');
+
+                const data = await response.json();
+
+                loading.classList.add('hidden');
+
+                if (data.last_updated) {
+                    lastUpdated.textContent = `Updated: ${new Date(data.last_updated).toLocaleString()}`;
+                }
+
+                if (data.trending_topics && data.trending_topics.length > 0) {
+                    trending.classList.remove('hidden');
+                    trendingTopics.innerHTML = data.trending_topics.map(topic =>
+                        `<span class="bg-gradient-to-r from-pink-500 to-purple-500 text-white px-4 py-2 rounded-full text-sm font-medium">${topic}</span>`
+                    ).join('');
+                }
+
+                if (data.news_items && data.news_items.length > 0) {
+                    newsFeed.innerHTML = data.news_items.map(createNewsCard).join('');
+                } else {
+                    newsFeed.innerHTML = `
+                        <div class="text-center py-20 text-gray-400">
+                            <p>No news available yet. Check back soon!</p>
+                        </div>
+                    `;
+                }
+            } catch (err) {
+                loading.classList.add('hidden');
+                error.classList.remove('hidden');
+                document.getElementById('error-message').textContent = err.message;
+            }
+        }
+
+        loadNews();
+    </script>
+</body>
+</html>

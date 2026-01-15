@@ -1,16 +1,5 @@
-# KATSEYE News Aggregator
-# Multi-stage build: Frontend build + Python runtime
-
-# Stage 1: Build React frontend
-FROM node:20-alpine AS frontend-build
-WORKDIR /app/frontend
-COPY frontend/package*.json ./
-RUN npm ci
-COPY frontend/ ./
-RUN npm run build
-
-# Stage 2: Python runtime
-FROM python:3.12-slim AS runtime
+# KATSEYE News Aggregator - Simple Python backend
+FROM python:3.12-slim
 WORKDIR /app
 
 # Install dependencies
@@ -20,8 +9,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend code
 COPY backend/ ./backend/
 
-# Copy frontend build
-COPY --from=frontend-build /app/frontend/dist ./static
+# Copy static HTML
+COPY static/ ./static/
 
 # Expose port
 EXPOSE 8080
