@@ -156,6 +156,57 @@ async def status():
     }
 
 
+@app.get("/api/debug")
+async def debug():
+    """Debug endpoint to diagnose MinIO connection issues."""
+    debug_info = {
+        "env_vars": {
+            "MINIO_ENDPOINT": MINIO_ENDPOINT[:30] + "..." if MINIO_ENDPOINT else "not set",
+            "ACCESS_KEY": "set" if MINIO_ACCESS_KEY else "not set",
+            "SECRET_KEY": "set" if MINIO_SECRET_KEY else "not set",
+        },
+        "s3_client_initialized": s3_client is not None,
+        "bucket_name": BUCKET_NAME,
+        "bucket_check": None,
+        "latest_json_check": None,
+        "error": None
+    }
+
+    if s3_client:
+        try:
+            # Try to list buckets
+            buckets = s3_client.list_buckets()
+            debug_info["bucket_check"] = {
+                "success": True,
+                "buckets": [b['Name'] for b in buckets.get('Buckets', [])]
+            }
+        except Exception as e:
+            debug_info["bucket_check"] = {
+                "success": False,
+                "error": str(e)
+            }
+
+        try:
+            # Try to get latest.json
+            response = s3_client.get_object(Bucket=BUCKET_NAME, Key="latest.json")
+            content = response['Body'].read().decode('utf-8')
+            data = json.loads(content)
+            debug_info["latest_json_check"] = {
+                "success": True,
+                "news_count": len(data.get("news_items", [])),
+                "last_updated": data.get("last_updated", "unknown")
+            }
+        except Exception as e:
+            debug_info["latest_json_check"] = {
+                "success": False,
+                "error": str(e)
+            }
+    else:
+        debug_info["error"] = "S3 client not initialized - check env vars"
+
+    return debug_info
+
+
 # Serve static files
 static_dir = "/app/static"
 if os.path.exists(static_dir):
