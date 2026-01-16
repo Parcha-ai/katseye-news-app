@@ -64,7 +64,7 @@ async def run_research() -> dict:
                 "question": RESEARCH_QUESTION,
                 "depth": "deep",
                 "approach": "general",
-                "expert_id": "katseye-news-expert"
+                "expert_id": "katseye-news-aggregator"
             }
         )
         response.raise_for_status()
