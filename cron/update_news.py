@@ -62,7 +62,7 @@ async def run_research() -> dict:
             headers={"Authorization": f"Bearer {GREP_API_TOKEN}"},
             json={
                 "question": RESEARCH_QUESTION,
-                "depth": "deep",
+                "depth": "ultra_deep",
                 "approach": "general",
                 "expert_id": "katseye-news-aggregator"
             }
